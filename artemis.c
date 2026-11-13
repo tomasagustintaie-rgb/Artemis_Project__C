@@ -22,6 +22,12 @@
 #define CIAN    "\033[1;36m"
 #define BLANCO  "\033[1;37m"
 
+// [ANTI-PARPADEO] Codigos ANSI de control del cursor
+#define IR_AL_INICIO   "\033[H"      // cursor a la esquina superior izquierda
+#define BORRAR_ABAJO   "\033[J"      // borra desde el cursor hasta el final de la pantalla
+#define OCULTAR_CURSOR "\033[?25l"
+#define MOSTRAR_CURSOR "\033[?25h"
+
 void inicializar_parametros_base(ParametrosMision *params) {
     params->a1 = 20.0;
     params->t1 = 120.0;
@@ -70,7 +76,10 @@ void mostrar_reporte_analitico(const ParametrosMision *params, const ResultadoAn
 }
 
 void dibujar_interfaz_vuelo(const EstadoTelemetria *estado, double altitud_meta) {
-    LIMPIAR_PANTALLA();
+    // [ANTI-PARPADEO] Antes: LIMPIAR_PANTALLA();
+    // Ahora solo se mueve el cursor al inicio y se sobrescribe el cuadro anterior.
+    printf(IR_AL_INICIO);
+
     double fraccion = estado->y / altitud_meta;
     if (fraccion > 1.0) fraccion = 1.0;
 
@@ -131,11 +140,19 @@ void dibujar_interfaz_vuelo(const EstadoTelemetria *estado, double altitud_meta)
     }
 
     printf(CIAN "╚═════════════════════════════════╩════════════════════════════════╝\n" RESET);
+
+    // [ANTI-PARPADEO] Borra cualquier resto de texto que haya quedado debajo del cuadro
+    printf(BORRAR_ABAJO);
+    fflush(stdout);   // fuerza a mostrar el cuadro completo de una sola vez
 }
 
 void ejecutar_simulacion_vuelo(const ParametrosMision *params) {
     EstadoTelemetria estado = {0.0, 0.0, 0.0, params->a1, 1};
     double dt = 1.0;
+
+    // [ANTI-PARPADEO] Se limpia la pantalla UNA sola vez (borra el menu) y se oculta el cursor
+    LIMPIAR_PANTALLA();
+    printf(OCULTAR_CURSOR);
 
     while (estado.y < params->altitud_meta) {
         if (estado.t < params->t1) {
@@ -157,5 +174,8 @@ void ejecutar_simulacion_vuelo(const ParametrosMision *params) {
     }
 
     dibujar_interfaz_vuelo(&estado, params->altitud_meta);
+
+    // [ANTI-PARPADEO] Se devuelve el cursor al terminar
+    printf(MOSTRAR_CURSOR);
     printf(VERDE "\n [OK] APAGADO DE MOTORES PRINCIPAL (MECO) CONFIRMADO A LOS %.2f km\n" RESET, estado.y / 1000.0);
 }
